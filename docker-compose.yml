@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+
+  spark-master:
+    image: bde2020/spark-master:2.4.5-hadoop2.7
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+    environment:
+      - INIT_DAEMON_STEP=setup_spark
+    networks:
+      - bridge
+
+  spark-worker:
+    image: bde2020/spark-worker:2.4.5-hadoop2.7
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+    ports:
+      - "8081:8081"
+    networks:
+      - bridge
+
+  cassandra:
+    image: cassandra:3.11
+    ports:
+      - "9042:9042"
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "admin"
+    ports:
+      - "3000:3000"
+
+networks:
+  bridge:
+    driver: bridge
+
+# Notas:
+# - Para que Spark use conectores Kafka/Cassandra, cuando ejecute spark-submit use --packages
+#   (por ejemplo: org.apache.spark:spark-sql-kafka-0-10_2.12:<version>,
+#    com.datastax.spark:spark-cassandra-connector_2.12:<version>)
+# - Este docker-compose es minimal y pensado para desarrollo/universidad (K=1 replicas).
