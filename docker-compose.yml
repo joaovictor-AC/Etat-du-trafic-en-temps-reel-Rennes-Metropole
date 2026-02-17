@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
@@ -10,10 +8,11 @@ services:
     ports:
       - "2181:2181"
     healthcheck:
-      test: ["CMD-SHELL", "echo ruok | nc -w 2 127.0.0.1 2181 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/2181' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 30s
     networks:
       - data-pipeline-net
 
@@ -32,25 +31,27 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
     ports:
       - "9092:9092"
       - "29092:29092"
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
     networks:
       - data-pipeline-net
 
   spark-master:
-    image: bitnami/spark:3.3.2
+    image: apache/spark:3.5.0
     restart: unless-stopped
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
     environment:
       - SPARK_MODE=master
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_LOCAL_IP=0.0.0.0
     ports:
       - "7077:7077"
       - "8080:8080"
@@ -58,30 +59,35 @@ services:
       - ./datalake:/opt/datalake
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://127.0.0.1:8080 || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 6
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     networks:
       - data-pipeline-net
 
   spark-worker:
-    image: bitnami/spark:3.3.2
+    image: apache/spark:3.5.0
     restart: unless-stopped
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
     depends_on:
       spark-master:
         condition: service_healthy
     environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=1g
+      - SPARK_WORKER_PORT=8881
+      - SPARK_WORKER_WEBUI_PORT=8081
     ports:
       - "8081:8081"
     volumes:
       - ./datalake:/opt/datalake
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://127.0.0.1:8081 || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 6
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     networks:
       - data-pipeline-net
 
@@ -91,15 +97,19 @@ services:
     environment:
       MAX_HEAP_SIZE: 512M
       HEAP_NEWSIZE: 100M
+      CASSANDRA_CLUSTER_NAME: TestCluster
+      CASSANDRA_DC: datacenter1
+      CASSANDRA_RACK: rack1
     ports:
       - "9042:9042"
     volumes:
       - cassandra-data:/var/lib/cassandra
     healthcheck:
-      test: ["CMD-SHELL", "cqlsh -e \"describe cluster\" || exit 1"]
-      interval: 15s
-      timeout: 10s
+      test: ["CMD-SHELL", "nodetool status || exit 1"]
+      interval: 30s
+      timeout: 15s
       retries: 10
+      start_period: 60s
     networks:
       - data-pipeline-net
 
