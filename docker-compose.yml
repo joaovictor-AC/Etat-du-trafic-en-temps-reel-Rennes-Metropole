@@ -2,67 +2,130 @@ version: '3.8'
 
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.4.0
+    restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc -w 2 127.0.0.1 2181 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - data-pipeline-net
 
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.4.0
+    restart: unless-stopped
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
     ports:
       - "9092:9092"
       - "29092:29092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks:
+      - data-pipeline-net
 
   spark-master:
-    image: bde2020/spark-master:2.4.5-hadoop2.7
+    image: bitnami/spark:3.3.2
+    restart: unless-stopped
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
     ports:
       - "7077:7077"
       - "8080:8080"
-    environment:
-      - INIT_DAEMON_STEP=setup_spark
+    volumes:
+      - ./datalake:/opt/datalake
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8080 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
     networks:
-      - bridge
+      - data-pipeline-net
 
   spark-worker:
-    image: bde2020/spark-worker:2.4.5-hadoop2.7
+    image: bitnami/spark:3.3.2
+    restart: unless-stopped
     depends_on:
-      - spark-master
+      spark-master:
+        condition: service_healthy
     environment:
-      - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
     ports:
       - "8081:8081"
+    volumes:
+      - ./datalake:/opt/datalake
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8081 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
     networks:
-      - bridge
+      - data-pipeline-net
 
   cassandra:
-    image: cassandra:3.11
+    image: cassandra:4.0
+    restart: unless-stopped
+    environment:
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 100M
     ports:
       - "9042:9042"
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e \"describe cluster\" || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks:
+      - data-pipeline-net
 
   grafana:
     image: grafana/grafana:latest
+    restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_PASSWORD: "admin"
     ports:
       - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    networks:
+      - data-pipeline-net
+
+volumes:
+  kafka-data:
+  cassandra-data:
+  grafana-storage:
 
 networks:
-  bridge:
+  data-pipeline-net:
     driver: bridge
 
-# Notas:
-# - Para que Spark use conectores Kafka/Cassandra, cuando ejecute spark-submit use --packages
-#   (por ejemplo: org.apache.spark:spark-sql-kafka-0-10_2.12:<version>,
-#    com.datastax.spark:spark-cassandra-connector_2.12:<version>)
-# - Este docker-compose es minimal y pensado para desarrollo/universidad (K=1 replicas).
+# Notes:
+# - Spark connectors (Kafka, Cassandra) are added at spark-submit time via --packages.
+#   Example packages: org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.2, com.datastax.spark:spark-cassandra-connector_2.12:3.1.0
+# - The datalake bind-mount ./datalake -> /opt/datalake for Spark master/worker simulates HDFS for this lab.
+# - JVM heap for Cassandra is limited to avoid using too much RAM on a laptop.
