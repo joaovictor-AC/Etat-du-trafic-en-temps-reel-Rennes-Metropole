@@ -53,18 +53,20 @@ services:
     command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
     environment:
       - SPARK_MODE=master
-      - SPARK_LOCAL_IP=0.0.0.0
+      - SPARK_LOCAL_IP=spark-master
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_OPTS=-Dspark.ui.bindAddress=0.0.0.0
     ports:
       - "7077:7077"
       - "8080:8080"
     volumes:
       - ./datalake:/opt/datalake
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8080 || exit 1"]
-      interval: 30s
+      test: ["CMD", "python3", "-c", "import socket,sys; s=socket.socket(); s.settimeout(5); sys.exit(0 if s.connect_ex((socket.gethostname(),8080))==0 else 1)"]
+      interval: 20s
       timeout: 10s
-      retries: 5
-      start_period: 30s
+      retries: 8
+      start_period: 40s
     networks:
       - data-pipeline-net
 
@@ -80,16 +82,19 @@ services:
       - SPARK_WORKER_MEMORY=1g
       - SPARK_WORKER_PORT=8881
       - SPARK_WORKER_WEBUI_PORT=8081
+      - SPARK_LOCAL_IP=spark-worker
+      - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_WORKER_OPTS=-Dspark.ui.bindAddress=0.0.0.0
     ports:
       - "8081:8081"
     volumes:
       - ./datalake:/opt/datalake
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8081 || exit 1"]
-      interval: 30s
+      test: ["CMD", "python3", "-c", "import socket,sys; s=socket.socket(); s.settimeout(5); sys.exit(0 if s.connect_ex((socket.gethostname(),8081))==0 else 1)"]
+      interval: 20s
       timeout: 10s
-      retries: 5
-      start_period: 30s
+      retries: 8
+      start_period: 40s
     networks:
       - data-pipeline-net
 
