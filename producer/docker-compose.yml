@@ -14,5 +14,4 @@ services:
 
 networks:
   projet-data-pipeline-net:
-    name: projet-data-pipeline-net
     external: true
