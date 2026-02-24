@@ -1,0 +1,18 @@
+services:
+  producer:
+    build: .
+    stdin_open: true
+    tty: true
+    ports:
+      - "8585:8585"
+    restart: always
+    command: /bin/bash
+    networks:
+      - projet-data-pipeline-net
+    volumes:
+      - ./app:/producer/app
+
+networks:
+  projet-data-pipeline-net:
+    name: projet-data-pipeline-net
+    external: true
