@@ -15,12 +15,14 @@ from typing import Dict, List, Optional
 import requests
 from kafka import KafkaProducer
 from kafka.errors import KafkaError
+from kafka.admin import KafkaAdminClient, NewTopic
+from kafka.errors import TopicAlreadyExistsError
 
 
 # Configuration from environment variables
 # Port 29092 is the external port for connections from outside Docker
 # Port 9092 is only for internal container-to-container communication
-KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'localhost:29092')
+KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'kafka:9092')
 KAFKA_TOPIC = os.getenv('KAFKA_TOPIC', 'rennes_traffic')
 API_URL = 'https://data.rennesmetropole.fr/api/explore/v2.1/catalog/datasets/etat-du-trafic-en-temps-reel/records'
 FETCH_INTERVAL = int(os.getenv('FETCH_INTERVAL', '180'))  # 3 minutes in seconds
@@ -39,8 +41,9 @@ class RennesTrafficProducer:
     """Producer class to fetch traffic data and send to Kafka"""
     
     def __init__(self):
-        """Initialize Kafka producer with UTF-8 encoding"""
+        """Initialize Kafka producer with UTF-8 encoding and ensure topic exists with 3 partitions"""
         try:
+            self.ensure_kafka_topic()
             self.producer = KafkaProducer(
                 bootstrap_servers=[KAFKA_BROKER],
                 value_serializer=lambda v: json.dumps(v).encode('utf-8'),
@@ -52,6 +55,20 @@ class RennesTrafficProducer:
             logger.info(f"Connected to Kafka broker: {KAFKA_BROKER}")
         except Exception as e:
             logger.error(f"Failed to connect to Kafka: {e}")
+            raise
+
+    
+    def ensure_kafka_topic(self):
+        """Ensure Kafka topic exists with 3 partitions and replication factor of 1"""
+        try:
+            admin_client = KafkaAdminClient(bootstrap_servers=[KAFKA_BROKER])
+            topic_list = [NewTopic(name=KAFKA_TOPIC, num_partitions=3, replication_factor=1)]
+            admin_client.create_topics(new_topics=topic_list, validate_only=False)
+            logger.info(f"Kafka topic '{KAFKA_TOPIC}' created successfully")
+        except TopicAlreadyExistsError:
+            logger.info(f"Kafka topic '{KAFKA_TOPIC}' already exists")
+        except Exception as e:
+            logger.error(f"Failed to create Kafka topic: {e}")
             raise
     
     def fetch_traffic_data(self) -> Optional[List[Dict]]:
