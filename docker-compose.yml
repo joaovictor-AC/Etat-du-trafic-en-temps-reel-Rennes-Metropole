@@ -14,7 +14,7 @@ services:
       retries: 8
       start_period: 30s
     networks:
-      - data-pipeline-net
+      - projet-data-pipeline-net
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
@@ -33,6 +33,7 @@ services:
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUMBER_OF_PARTITIONS: 3
     ports:
       - "9092:9092"
       - "29092:29092"
@@ -45,7 +46,26 @@ services:
       retries: 10
       start_period: 60s
     networks:
-      - data-pipeline-net
+      - projet-data-pipeline-net
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop:4.2.0
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - zookeeper
+    environment:
+      KAFKA_BROKERCONNECT: kafka:9092
+    ports:
+      - "19000:9000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000 || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 8
+      start_period: 40s
+    networks:
+      - projet-data-pipeline-net
 
   spark-master:
     image: apache/spark:3.5.0
@@ -68,7 +88,7 @@ services:
       retries: 8
       start_period: 40s
     networks:
-      - data-pipeline-net
+      - projet-data-pipeline-net
 
   spark-worker:
     image: apache/spark:3.5.0
@@ -96,7 +116,7 @@ services:
       retries: 8
       start_period: 40s
     networks:
-      - data-pipeline-net
+      - projet-data-pipeline-net
 
   cassandra:
     image: cassandra:4.0
@@ -118,7 +138,7 @@ services:
       retries: 10
       start_period: 60s
     networks:
-      - data-pipeline-net
+      - projet-data-pipeline-net
 
   grafana:
     image: grafana/grafana:latest
@@ -130,7 +150,7 @@ services:
     volumes:
       - grafana-storage:/var/lib/grafana
     networks:
-      - data-pipeline-net
+      - projet-data-pipeline-net
 
 volumes:
   kafka-data:
@@ -138,7 +158,8 @@ volumes:
   grafana-storage:
 
 networks:
-  data-pipeline-net:
+  projet-data-pipeline-net:
+    name: projet-data-pipeline-net
     driver: bridge
 
 # Notes:
