@@ -18,10 +18,6 @@ from kafka.errors import KafkaError
 from kafka.admin import KafkaAdminClient, NewTopic
 from kafka.errors import TopicAlreadyExistsError
 
-
-# Configuration from environment variables
-# Port 29092 is the external port for connections from outside Docker
-# Port 9092 is only for internal container-to-container communication
 KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'kafka:9092')
 KAFKA_TOPIC = os.getenv('KAFKA_TOPIC', 'rennes_traffic')
 API_URL = 'https://data.rennesmetropole.fr/api/explore/v2.1/catalog/datasets/etat-du-trafic-en-temps-reel/records'
@@ -31,9 +27,10 @@ API_LIMIT = int(os.getenv('API_LIMIT', '100'))
 # Setup logging with simple format
 logging.basicConfig(
     level=logging.INFO,
-    format='[%(levelname)s] %(asctime)s - %(message)s',
+    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
+
 logger = logging.getLogger(__name__)
 
 
