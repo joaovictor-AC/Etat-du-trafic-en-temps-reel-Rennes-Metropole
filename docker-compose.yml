@@ -117,6 +117,22 @@ services:
       start_period: 40s
     networks:
       - projet-data-pipeline-net
+    
+  spark-submit:
+    image: apache/spark:3.5.0
+    restart: "no"
+    user: root
+    command: ["/opt/spark/bin/spark-submit", "--master", "spark://spark-master:7077", "--conf", "spark.jars.ivy=/tmp/.ivy2", "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,com.datastax.spark:spark-cassandra-connector_2.12:3.4.0", "/opt/spark/app/kafka_spark.py"]
+    depends_on:
+      spark-master:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./datalake:/opt/spark/datalake
+      - ./spark/app:/opt/spark/app
+    networks:
+      - projet-data-pipeline-net
 
   cassandra:
     image: cassandra:4.0
