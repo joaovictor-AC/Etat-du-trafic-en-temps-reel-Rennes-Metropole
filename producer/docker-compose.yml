@@ -6,12 +6,11 @@ services:
     ports:
       - "8585:8585"
     restart: always
-    command: /bin/bash
     networks:
       - projet-data-pipeline-net
     volumes:
       - ./app:/producer/app
-
+    command: ["python3", "producer.py"]
 networks:
   projet-data-pipeline-net:
     external: true
