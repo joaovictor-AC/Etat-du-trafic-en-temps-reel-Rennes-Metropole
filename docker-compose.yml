@@ -1,5 +1,8 @@
+name: traffic_rennes
+
 services:
   zookeeper:
+    container_name: zookeeper
     image: confluentinc/cp-zookeeper:7.4.0
     restart: unless-stopped
     environment:
@@ -14,9 +17,10 @@ services:
       retries: 8
       start_period: 30s
     networks:
-      - projet-data-pipeline-net
+      - traffic_rennes_net
 
   kafka:
+    container_name: kafka
     image: confluentinc/cp-kafka:7.4.0
     restart: unless-stopped
     depends_on:
@@ -46,14 +50,17 @@ services:
       retries: 10
       start_period: 60s
     networks:
-      - projet-data-pipeline-net
+      - traffic_rennes_net
 
   kafdrop:
+    container_name: kafdrop
     image: obsidiandynamics/kafdrop:4.2.0
     restart: unless-stopped
     depends_on:
-      - kafka
-      - zookeeper
+      kafka:
+        condition: service_healthy
+      zookeeper:
+        condition: service_healthy
     environment:
       KAFKA_BROKERCONNECT: kafka:9092
     ports:
@@ -65,9 +72,10 @@ services:
       retries: 8
       start_period: 40s
     networks:
-      - projet-data-pipeline-net
+      - traffic_rennes_net
 
   spark-master:
+    container_name: spark-master
     image: apache/spark:3.5.0
     restart: unless-stopped
     command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
@@ -80,7 +88,7 @@ services:
       - "7077:7077"
       - "8080:8080"
     volumes:
-      - ./datalake:/opt/datalake
+      - ./datalake:/opt/spark/datalake
     healthcheck:
       test: ["CMD", "python3", "-c", "import socket,sys; s=socket.socket(); s.settimeout(5); sys.exit(0 if s.connect_ex((socket.gethostname(),8080))==0 else 1)"]
       interval: 20s
@@ -88,9 +96,10 @@ services:
       retries: 8
       start_period: 40s
     networks:
-      - projet-data-pipeline-net
+      - traffic_rennes_net
 
   spark-worker:
+    container_name: spark-worker
     image: apache/spark:3.5.0
     restart: unless-stopped
     command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
@@ -98,8 +107,8 @@ services:
       spark-master:
         condition: service_healthy
     environment:
-      - SPARK_WORKER_CORES=2
-      - SPARK_WORKER_MEMORY=1g
+      - SPARK_WORKER_CORES=4
+      - SPARK_WORKER_MEMORY=2g
       - SPARK_WORKER_PORT=8881
       - SPARK_WORKER_WEBUI_PORT=8081
       - SPARK_LOCAL_IP=spark-worker
@@ -108,7 +117,7 @@ services:
     ports:
       - "8081:8081"
     volumes:
-      - ./datalake:/opt/datalake
+      - ./datalake:/opt/spark/datalake
     healthcheck:
       test: ["CMD", "python3", "-c", "import socket,sys; s=socket.socket(); s.settimeout(5); sys.exit(0 if s.connect_ex((socket.gethostname(),8081))==0 else 1)"]
       interval: 20s
@@ -116,25 +125,52 @@ services:
       retries: 8
       start_period: 40s
     networks:
-      - projet-data-pipeline-net
+      - traffic_rennes_net
     
   spark-submit:
+    container_name: spark-submit
     image: apache/spark:3.5.0
     restart: "no"
     user: root
-    command: ["/opt/spark/bin/spark-submit", "--master", "spark://spark-master:7077", "--conf", "spark.jars.ivy=/tmp/.ivy2", "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,com.datastax.spark:spark-cassandra-connector_2.12:3.4.0", "/opt/spark/app/kafka_spark.py"]
+    command: ["/opt/spark/bin/spark-submit", "--master", "spark://spark-master:7077", "--conf", "spark.jars.ivy=/tmp/.ivy2", "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,com.datastax.spark:spark-cassandra-connector_2.12:3.4.0", "/opt/spark/app/streaming_layer.py"]
     depends_on:
       spark-master:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      cassandra:
+        condition: service_healthy
+      cassandra-init:
+        condition: service_completed_successfully
     volumes:
       - ./datalake:/opt/spark/datalake
       - ./spark/app:/opt/spark/app
     networks:
-      - projet-data-pipeline-net
+      - traffic_rennes_net
+
+  spark-batch:
+    container_name: spark-batch
+    image: apache/spark:3.5.0
+    restart: "no"
+    user: root
+    command: ["/opt/spark/bin/spark-submit", "--master", "spark://spark-master:7077", "--conf", "spark.jars.ivy=/tmp/.ivy2", "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,com.datastax.spark:spark-cassandra-connector_2.12:3.4.0", "/opt/spark/app/batch_layer.py"]
+    depends_on:
+      spark-master:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      cassandra:
+        condition: service_healthy
+      cassandra-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./datalake:/opt/spark/datalake
+      - ./spark/app:/opt/spark/app
+    networks:
+      - traffic_rennes_net
 
   cassandra:
+    container_name: cassandra
     image: cassandra:4.0
     restart: unless-stopped
     environment:
@@ -154,9 +190,23 @@ services:
       retries: 10
       start_period: 60s
     networks:
-      - projet-data-pipeline-net
+      - traffic_rennes_net
+
+  cassandra-init:
+    container_name: cassandra-init
+    image: cassandra:4.0
+    restart: "no"
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./cassandra/init.cql:/init.cql
+    command: ["cqlsh", "cassandra", "-f", "/init.cql"]
+    networks:
+      - traffic_rennes_net
 
   grafana:
+    container_name: grafana
     image: grafana/grafana:latest
     restart: unless-stopped
     environment:
@@ -166,7 +216,7 @@ services:
     volumes:
       - grafana-storage:/var/lib/grafana
     networks:
-      - projet-data-pipeline-net
+      - traffic_rennes_net
 
 volumes:
   kafka-data:
@@ -174,12 +224,6 @@ volumes:
   grafana-storage:
 
 networks:
-  projet-data-pipeline-net:
-    name: projet-data-pipeline-net
+  traffic_rennes_net:
+    name: traffic_rennes_net
     driver: bridge
-
-# Notes:
-# - Spark connectors (Kafka, Cassandra) are added at spark-submit time via --packages.
-#   Example packages: org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.2, com.datastax.spark:spark-cassandra-connector_2.12:3.1.0
-# - The datalake bind-mount ./datalake -> /opt/datalake for Spark master/worker simulates HDFS for this lab.
-# - JVM heap for Cassandra is limited to avoid using too much RAM on a laptop.

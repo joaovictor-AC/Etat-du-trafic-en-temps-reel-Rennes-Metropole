@@ -1,5 +1,8 @@
-services:
+name: traffic_rennes_producer
+
+services:  
   producer:
+    container_name: producer
     build: .
     stdin_open: true
     tty: true
@@ -7,10 +10,10 @@ services:
       - "8585:8585"
     restart: always
     networks:
-      - projet-data-pipeline-net
+      - traffic_rennes_net
     volumes:
       - ./app:/producer/app
     command: ["python3", "producer.py"]
 networks:
-  projet-data-pipeline-net:
+  traffic_rennes_net:
     external: true

@@ -20,11 +20,13 @@ class RennesTrafficStreaming:
         self.spark = SparkSession.builder\
             .appName("RennesTrafficStreaming") \
             .master("spark://spark-master:7077") \
-            .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,com.datastax.spark:spark-cassandra-connector_2.12:3.4.0") \
             .config("spark.driver.memory", "1g")\
             .config("spark.executor.memory", "1g")\
-            .config("spark.cores.max", "4")\
-            .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0") \
+            .config("spark.cores.max", "2")\
+            .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0," "com.datastax.spark:spark-cassandra-connector_2.12:3.4.0") \
+            .config("spark.cassandra.connection.host", "cassandra") \
+            .config("spark.cassandra.connection.port", "9042") \
+            .config("spark.sql.adaptive.enabled", "false") \
             .getOrCreate()
             
         self.spark.sparkContext.setLogLevel("WARN")
@@ -61,7 +63,7 @@ class RennesTrafficStreaming:
                 .format("kafka") \
                 .option("kafka.bootstrap.servers", "kafka:9092") \
                 .option("subscribe", topic) \
-                .option("startingOffsets", "latest") \
+                .option("startingOffsets", "earliest") \
                 .option("failOnDataLoss", "false") \
                 .load()
             logger.info("Kafka read started successfully.")
@@ -82,14 +84,14 @@ class RennesTrafficStreaming:
                 
             logger.info("JSON parsing completed successfully.")
             
-            df_transformed = df_parsed \
-                .withColumn("timestamp_parsed", F.to_timestamp("timestamp")) \
+            df_transformed = df_parsed.withColumn("timestamp_parsed", F.to_timestamp("timestamp")) \
                 .withColumn("status_color",
                             F.when(F.col("current_speed") > F.col("speed_limit") * 0.8, "RED")
                              .otherwise("GREEN")
                              )\
                 .withColumn("processing_time", F.current_timestamp())\
-                .withColumn("date_partition", F.date_format("timestamp_parsed", "yyyy-MM-dd"))
+                .withColumn("date_partition", F.date_format("timestamp_parsed", "yyyy-MM-dd")) \
+                .drop("timestamp", "status")
                 
             logger.info("Transformations applied to DataFrame.")
             
@@ -149,6 +151,22 @@ class RennesTrafficStreaming:
         
         return query
     
+    def write_to_cassandra(self, df):
+        """
+        Write streaming DataFrame to Cassandra table
+        """
+        logger.info(f"Writing streaming DataFrame to Cassandra table: traffic_realtime")
+        
+        query = df.writeStream \
+            .outputMode("append") \
+            .format("org.apache.spark.sql.cassandra") \
+            .option("keyspace", "traffic_keyspace") \
+            .option("table", "traffic_realtime") \
+            .option("checkpointLocation", "/opt/spark/datalake/checkpoints/cassandra_realtime") \
+            .start()
+            
+        return query
+
     def stop(self):
         """Stop Spark session"""
         
@@ -170,6 +188,7 @@ def main():
     traffic_stream.write_to_console(df_final)
     ##########################################################
     traffic_stream.write_to_parquet(df_final)
+    traffic_stream.write_to_cassandra(df_final)
     
     try:
         traffic_stream.spark.streams.awaitAnyTermination()
