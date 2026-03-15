@@ -4,6 +4,7 @@ import time
 
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+from pyspark.sql.types import StructType, StructField, StringType, ArrayType, DoubleType
 
 
 def _get_week_dates():
@@ -16,7 +17,8 @@ CORES = 2
 TODAY = date.today().strftime("%Y-%m-%d")
 WEEK_DAYS = _get_week_dates()
 BASE_PATH = f"/opt/spark/datalake/rennes_traffic_data"
-INTERVAL_BATCH = 600
+INTERVAL_BATCH = 60 * 10
+KEYSPACE = "rennes_traffic"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,7 +36,7 @@ class RennesTrafficBatch:
             .master("spark://spark-master:7077") \
             .config("spark.driver.memory", "1g") \
             .config("spark.executor.memory", "1g") \
-            .config("spark.cores.max", "2")\
+            .config("spark.cores.max", str(CORES))\
             .config("spark.jars.packages", "com.datastax.spark:spark-cassandra-connector_2.12:3.4.0") \
             .config("spark.cassandra.connection.host", "cassandra") \
             .config("spark.cassandra.connection.port", "9042") \
@@ -55,11 +57,11 @@ class RennesTrafficBatch:
         try:
             self.df_all = self.spark.read.parquet(BASE_PATH)
             self.df_today = self.spark.read.parquet(f"{BASE_PATH}/date_partition={TODAY}")
-            self.df_week = self.spark.read.parquet(*[f"{BASE_PATH}/date_partition={day}" for day in WEEK_DAYS])
+            # self.df_week = self.spark.read.parquet(*[f"{BASE_PATH}/date_partition={day}" for day in WEEK_DAYS])
             
         except Exception as e:
             if "PATH_NOT_FOUND" in str(e):
-                logger.warning("The directory datalake is not exists yet. Waiting 30 seconds for the data streaming ...")
+                logger.warning(f"The directory {BASE_PATH} is not exists yet. Waiting 30 seconds for the data streaming ...")
             else:
                 logger.error(f"Error reading data: {e}")
             time.sleep(30)
@@ -74,39 +76,25 @@ class RennesTrafficBatch:
         Process data for batch layer
         """
         logger.info("Starting batch data processing...")
-
-        df_daily_avg = self.df_today.groupBy("street_name") \
-            .agg(
-                F.round(F.avg("current_speed"), 2).alias("avg_speed_today"),
-                F.max("speed_limit").alias("speed_limit")
+            
+        df_geomap = self.df_all \
+            .select(
+                F.col("date_time"),
+                F.col("denomination"),
+                F.col("traffic_status"),
+                F.posexplode_outer(F.col("geo_shape.geometry.coordinates")).alias("point_order", "coords")
             ) \
-            .withColumn("record_date", F.lit(TODAY).cast("date"))
+            .select(
+                F.col("date_time"),
+                F.col("denomination"),
+                F.col("traffic_status"),
+                F.col("point_order"),
+                F.col("coords").getItem(1).alias("latitude"),
+                F.col("coords").getItem(0).alias("longitude")
+            )
             
-        df_hourly_avg = self.df_today.withColumn("hour", F.hour("timestamp_parsed")) \
-            .groupBy("street_name", "hour") \
-            .agg(F.round(F.avg("current_speed"), 2).alias("avg_speed_hour")) \
-            .withColumn("record_date", F.lit(TODAY).cast("date"))
-            
-        df_weekly_ranking = self.df_week.filter(F.col("status_color") == "RED") \
-            .groupBy("street_name") \
-            .agg(F.count("*").alias("red_flag_count")) \
-            .orderBy(F.desc("red_flag_count"))
-            
-        df_geo_zones = self.df_today \
-            .withColumn("zone_lat", F.round(F.col("lat"), 2)) \
-            .withColumn("zone_lon", F.round(F.col("lon"), 2)) \
-            .groupBy("zone_lat", "zone_lon") \
-            .agg(
-                F.round(F.avg("current_speed"), 2).alias("zone_avg_speed"),
-                F.countDistinct("street_name").alias("streets_in_zone")
-            ) \
-            .withColumn("record_date", F.lit(TODAY).cast("date"))
-        
         targets = {
-            "traffic_daily": df_daily_avg,
-            "traffic_hourly": df_hourly_avg,
-            "traffic_weekly_ranking": df_weekly_ranking,
-            "traffic_zones": df_geo_zones
+            "traffic_mapping": df_geomap
         }
         
         logger.info("Batch data processing completed.")
@@ -122,7 +110,7 @@ class RennesTrafficBatch:
         try:
             df.write \
                 .format("org.apache.spark.sql.cassandra") \
-                .options(keyspace="traffic_keyspace", table=table) \
+                .options(keyspace=KEYSPACE, table=table) \
                 .mode("append") \
                 .save()
                 
