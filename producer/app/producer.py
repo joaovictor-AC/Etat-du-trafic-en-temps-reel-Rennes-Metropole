@@ -1,36 +1,30 @@
-#!/usr/bin/env python3
-"""
-Rennes Traffic Data Producer for Lambda Architecture
-Fetches traffic data from Rennes Metro API and sends to Kafka
-Feeds both Speed Layer and Batch Layer
-"""
-
-import json
 import logging
-import os
-import time
-from datetime import datetime
-from typing import Dict, List, Optional
-
+import json
 import requests
+import time
+from typing import List
+
+# Kafka imports
 from kafka import KafkaProducer
-from kafka.errors import KafkaError
 from kafka.admin import KafkaAdminClient, NewTopic
-from kafka.errors import TopicAlreadyExistsError
+from kafka.errors import TopicAlreadyExistsError, KafkaError
 
-KAFKA_BROKER = os.getenv('KAFKA_BROKER', 'kafka:9092')
-KAFKA_TOPIC = os.getenv('KAFKA_TOPIC', 'rennes_traffic')
+# Constants
 API_URL = 'https://data.rennesmetropole.fr/api/explore/v2.1/catalog/datasets/etat-du-trafic-en-temps-reel/records'
-FETCH_INTERVAL = int(os.getenv('FETCH_INTERVAL', '180'))  # 3 minutes in seconds
-API_LIMIT = int(os.getenv('API_LIMIT', '100'))
+FETCH_INTERVAL = 180 
+API_LIMIT = 100
+KAFKA_TOPIC = 'rennes_traffic'
+KAFKA_BROKER = 'kafka:9092'
+NUM_PARTITIONS = 3
+REPLICATION_FACTOR = 1
+API_CLE = 'Apikey 227b312ce19e501c260e8bb53f681b9a5fd34b57bbeaf3ba6da53e4d'
 
-# Setup logging with simple format
+# Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s %(name)s: %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-
 logger = logging.getLogger(__name__)
 
 
@@ -38,193 +32,183 @@ class RennesTrafficProducer:
     """Producer class to fetch traffic data and send to Kafka"""
     
     def __init__(self):
-        """Initialize Kafka producer with UTF-8 encoding and ensure topic exists with 3 partitions"""
+
+        # Ensure Kafka topic exists before creating producer        
+        self.ensure_kafka_topic()
+        
         try:
-            self.ensure_kafka_topic()
+            # Initialize Kafka producer
             self.producer = KafkaProducer(
                 bootstrap_servers=[KAFKA_BROKER],
                 value_serializer=lambda v: json.dumps(v).encode('utf-8'),
                 key_serializer=lambda k: k.encode('utf-8') if k else None,
-                acks='all',  # Wait for all replicas to acknowledge
-                retries=3,   # Retry on failure
-                max_in_flight_requests_per_connection=1  # Maintain order
+                acks='all',
+                retries=3,
+                max_in_flight_requests_per_connection=1
             )
-            logger.info(f"Connected to Kafka broker: {KAFKA_BROKER}")
+            
+            logging.info(f"Connected to Kafka broker: {KAFKA_BROKER}")
+        
         except Exception as e:
             logger.error(f"Failed to connect to Kafka: {e}")
             raise
 
     
     def ensure_kafka_topic(self):
-        """Ensure Kafka topic exists with 3 partitions and replication factor of 1"""
+        """Create Kafka topic if it doesn't exist"""
+        
         try:
+            # Admin client to manage Kafka topics 
             admin_client = KafkaAdminClient(bootstrap_servers=[KAFKA_BROKER])
-            topic_list = [NewTopic(name=KAFKA_TOPIC, num_partitions=3, replication_factor=1)]
+            
+            # Define the topic to be created
+            topic_list = [NewTopic(name=KAFKA_TOPIC, num_partitions=NUM_PARTITIONS, replication_factor=REPLICATION_FACTOR)]
+            
+            # Attempt to create the topic
             admin_client.create_topics(new_topics=topic_list, validate_only=False)
+            
             logger.info(f"Kafka topic '{KAFKA_TOPIC}' created successfully")
+            
         except TopicAlreadyExistsError:
             logger.info(f"Kafka topic '{KAFKA_TOPIC}' already exists")
+            
         except Exception as e:
             logger.error(f"Failed to create Kafka topic: {e}")
             raise
-    
-    def fetch_traffic_data(self) -> Optional[List[Dict]]:
+        
+    def fetch_traffic_data(self) -> List[dict]:
+        """Fetch traffic data from API
+
+        Returns:
+            List[dict]: List of traffic records fetched from API, or None if an error occurred
         """
-        Fetch traffic data from Rennes Metro API
-        Returns list of records or None if failed
-        """
-        try:
-            params = {'limit': API_LIMIT}
-            response = requests.get(API_URL, params=params, timeout=30)
-            response.raise_for_status()
+        all_records = []
+        offset = 0
+        
+        while True:
+            try:
+                # Make API request to fetch traffic data
+                response = requests.get(API_URL, params={'limit': API_LIMIT, 'offset': offset}, headers={'Authorization': API_CLE})
+
+                # Check if the request was successful
+                response.raise_for_status()
+                
+                # Parse JSON response and extract records
+                data = response.json()
+                records = data.get('results', [])
+                
+                # Condition to break loop if no more records are returned by the API
+                if not records:
+                    logger.warning("No records found in API response")
+                    break
+                
+                # Append fetched records to the cumulative list
+                all_records.extend(records)
+                logger.info(f"Fetched {len(records)} records from API (offset: {offset}) | Total fetched: {len(all_records)}")
+                
+                # Increment offset for next batch of records    
+                offset += API_LIMIT
+                
+                # Sleep briefly to avoid overwhelming the API with requests
+                time.sleep(.5)
+                
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Failed to fetch data from API: {e}")
+                break
             
-            data = response.json()
-            records = data.get('results', [])
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON response: {e}")
+                break
             
-            if not records:
-                logger.warning("No records found in API response")
-                return None
-            
-            logger.info(f"Fetched {len(records)} records from API")
-            return records
-            
-        except requests.exceptions.RequestException as e:
-            logger.error(f"API request failed: {e}")
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                break
+
+        if not all_records:
+            logger.warning("No records could be retrieved from the API")
             return None
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse API response: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error fetching data: {e}")
-            return None
-    
-    def clean_and_transform_record(self, record: Dict) -> Optional[Dict]:
+        
+        logger.info(f"Successfully finished fetching. Grand total: {len(all_records)} records")
+        return all_records
+        
+    def send_to_kafka(self, records: List[dict]) -> int:
+        """Send records to Kafka topic
+
+        Args:
+            records (List[dict]): List of traffic records to be sent to Kafka
+
+        Returns:
+            int: Number of records successfully sent to Kafka
         """
-        Clean and transform a single record to flat JSON schema
-        Returns transformed record or None if invalid
-        """
-        try:
-            # Extract coordinates safely
-            geo_point = record.get('geo_point_2d', {})
-            lat = geo_point.get('lat')
-            lon = geo_point.get('lon')
-            
-            # Skip records without coordinates
-            if lat is None or lon is None:
-                return None
-            
-            # Create flat record with required schema
-            transformed_record = {
-                'timestamp': datetime.now().isoformat(),
-                'street_name': record.get('denomination', 'Unknown Street'),
-                'current_speed': record.get('averagevehiclespeed'),
-                'speed_limit': record.get('vitesse_maxi'),
-                'lat': lat,
-                'lon': lon,
-                'status': record.get('trafficstatus', 'unknown')
-            }
-            
-            # Skip records with missing speed data
-            if transformed_record['current_speed'] is None:
-                return None
-            
-            return transformed_record
-            
-        except Exception as e:
-            logger.warning(f"Failed to transform record: {e}")
-            return None
-    
-    def send_records_to_kafka(self, records: List[Dict]) -> int:
-        """
-        Send cleaned records to Kafka topic
-        Returns number of successfully sent records
-        """
+        
+        # Counter to track number of records successfully sent to Kafka
         sent_count = 0
         
         for record in records:
-            # Clean and transform each record
-            clean_record = self.clean_and_transform_record(record)
-            
-            if clean_record is None:
-                continue
             
             try:
-                # Send to Kafka with street name as key for partitioning
-                street_key = clean_record['street_name']
-                future = self.producer.send(
-                    KAFKA_TOPIC, 
-                    key=street_key,
-                    value=clean_record
-                )
-                
-                # Wait for send to complete (blocking)
-                future.get(timeout=10)
+                self.producer.send(KAFKA_TOPIC, value=record)
                 sent_count += 1
                 
             except KafkaError as e:
                 logger.error(f"Failed to send record to Kafka: {e}")
-            except Exception as e:
-                logger.error(f"Unexpected error sending record: {e}")
-        
-        return sent_count
-    
-    def run_producer_loop(self):
-        """
-        Main producer loop - fetch data and send to Kafka every 3 minutes
-        Runs indefinitely with error handling
-        """
-        logger.info(f"Starting Rennes Traffic Producer")
-        logger.info(f"Kafka Topic: {KAFKA_TOPIC}")
-        logger.info(f"Fetch Interval: {FETCH_INTERVAL} seconds")
-        
-        while True:
-            try:
-                # Fetch traffic data from API
-                records = self.fetch_traffic_data()
-                
-                if records:
-                    # Send records to Kafka
-                    sent_count = self.send_records_to_kafka(records)
-                    logger.info(f"Sent {sent_count} records to Kafka topic '{KAFKA_TOPIC}'")
-                else:
-                    logger.warning("No data to send to Kafka")
-                
-                # Flush producer to ensure all messages are sent
-                self.producer.flush()
                 
             except Exception as e:
-                logger.error(f"Error in producer loop: {e}")
-                logger.info("Continuing with next cycle...")
+                logger.error(f"Unexpected error while sending to Kafka: {e}")
             
-            # Wait for next fetch cycle
-            logger.info(f"Waiting {FETCH_INTERVAL} seconds for next fetch...")
-            time.sleep(FETCH_INTERVAL)
-    
+        return sent_count
+            
     def close(self):
-        """Clean shutdown of producer"""
+        """Close the Kafka producer connection"""
+        
         try:
             self.producer.flush()
             self.producer.close()
-            logger.info("Producer closed successfully")
+            logger.info("Kafka producer closed successfully")
         except Exception as e:
-            logger.error(f"Error closing producer: {e}")
-
-
+            logger.error(f"Error closing Kafka producer: {e}")
+            
 def main():
-    """Main function to start the producer"""
-    producer = None
+    """Main function to run the producer"""
     
     try:
+        # Initialize the producer
         producer = RennesTrafficProducer()
-        producer.run_producer_loop()
+        
+        logger.info("Starting Rennes Traffic Producer")
+        logger.info(f"Kafka Broker: {KAFKA_BROKER}, Topic: {KAFKA_TOPIC}, API URL: {API_URL}")
+        logger.info(f"Fetch Interval: {FETCH_INTERVAL} seconds")
+        
+        # Main loop to continuously fetch data and send to Kafka
+        while True:
+            
+            # Fetch traffic data from API
+            records = producer.fetch_traffic_data()
+            
+            # Check if records were fetched successfully before attempting to send to Kafka
+            if records:
+                producer.send_to_kafka(records)
+                logger.info(f"Sent {len(records)} records to Kafka topic '{KAFKA_TOPIC}'")
+            else:
+                logger.warning("No data to send to Kafka")
+                break
+                
+            # Wait for the specified interval before fetching data again
+            logger.info(f"Waiting {FETCH_INTERVAL // 60} minutes for next fetch...")
+            time.sleep(FETCH_INTERVAL)
+    
+                
     except KeyboardInterrupt:
-        logger.info("Received shutdown signal (Ctrl+C)")
+        logger.info("Producer interrupted by user. Shutting down."
+                    )
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
+        logger.error(f"Unexpected error in producer: {e}")
+        
     finally:
         if producer:
             producer.close()
-
-
+            
 if __name__ == "__main__":
     main()
+    
+        
