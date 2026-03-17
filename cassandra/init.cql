@@ -30,5 +30,6 @@ create table if not exists traffic_mapping (
     point_order int,
     latitude double,
     longitude double,
-    primary key ((denomination), date_time, point_order, latitude, longitude)
+    hierarchie text,
+    primary key ((denomination, hierarchie), date_time, point_order)
 ) with clustering order by (date_time desc, point_order asc);

@@ -17,7 +17,7 @@ CORES = 2
 TODAY = date.today().strftime("%Y-%m-%d")
 WEEK_DAYS = _get_week_dates()
 BASE_PATH = f"/opt/spark/datalake/rennes_traffic_data"
-INTERVAL_BATCH = 60 * 10
+INTERVAL_BATCH = 60 * 9
 KEYSPACE = "rennes_traffic"
 
 logging.basicConfig(
@@ -82,6 +82,7 @@ class RennesTrafficBatch:
                 F.col("date_time"),
                 F.col("denomination"),
                 F.col("traffic_status"),
+                F.col("hierarchie"),
                 F.posexplode_outer(F.col("geo_shape.geometry.coordinates")).alias("point_order", "coords")
             ) \
             .select(
@@ -90,7 +91,8 @@ class RennesTrafficBatch:
                 F.col("traffic_status"),
                 F.col("point_order"),
                 F.col("coords").getItem(1).alias("latitude"),
-                F.col("coords").getItem(0).alias("longitude")
+                F.col("coords").getItem(0).alias("longitude"),
+                F.col("hierarchie")
             )
             
         targets = {

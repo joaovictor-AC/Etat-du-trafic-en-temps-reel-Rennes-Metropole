@@ -1,0 +1,919 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 5,
+      "panels": [],
+      "repeat": "group",
+      "title": "${group}",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "efg0ybz4lx8u8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Average Speed",
+            "axisPlacement": "auto",
+            "fillOpacity": 56,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "velocitykmh"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Maximum Speed"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status_color"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 6,
+      "options": {
+        "barRadius": 0.05,
+        "barWidth": 0.97,
+        "colorByField": "status_color",
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "auto",
+        "showValue": "always",
+        "stacking": "none",
+        "text": {
+          "valueSize": 10
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "denomination",
+        "xTickLabelMaxLength": 10,
+        "xTickLabelRotation": -60,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.4.0",
+      "targets": [
+        {
+          "datasourceId": 1,
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "A",
+          "target": "select denomination, avg(avg_speed) as \"Average Speed\", max_speed as \"Maximum Speed\"\nfrom traffic_realtime\nwhere hierarchie = ${group:sqlstring}\ngroup by denomination\nallow filtering;"
+        }
+      ],
+      "title": "Average speed by Group",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "calculateField",
+          "options": {
+            "alias": "status_color",
+            "binary": {
+              "left": {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Average Speed"
+                }
+              },
+              "operator": "/",
+              "right": {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Maximum Speed"
+                }
+              }
+            },
+            "mode": "binary",
+            "reduce": {
+              "reducer": "sum"
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "efg0ybz4lx8u8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisGridShow": true,
+            "axisLabel": "Time Travel",
+            "axisPlacement": "auto",
+            "axisWidth": 70,
+            "fillOpacity": 56,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "fieldMinMax": true,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "id": 7,
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.91,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "auto",
+        "showValue": "always",
+        "stacking": "none",
+        "text": {
+          "valueSize": 10
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "denomination",
+        "xTickLabelMaxLength": 10,
+        "xTickLabelRotation": -60,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.4.0",
+      "targets": [
+        {
+          "datasourceId": 1,
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "A",
+          "target": "select denomination, avg(travel_time) as \"Average Time Travel\"\nfrom traffic_realtime\nwhere hierarchie = ${group:sqlstring}\ngroup by denomination\nallow filtering;"
+        }
+      ],
+      "title": "Average Time Travel by group",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "efg0ybz4lx8u8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [
+            {
+              "options": {
+                "congested": {
+                  "color": "red",
+                  "index": 3
+                },
+                "freeFlow": {
+                  "color": "green",
+                  "index": 1
+                },
+                "heavy": {
+                  "color": "orange",
+                  "index": 2
+                },
+                "impossible": {
+                  "color": "dark-red",
+                  "index": 4
+                },
+                "unknown": {
+                  "color": "text",
+                  "index": 0
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 17,
+        "w": 13,
+        "x": 11,
+        "y": 23
+      },
+      "id": 8,
+      "options": {
+        "basemap": {
+          "config": {},
+          "name": "Layer 0",
+          "noRepeat": false,
+          "type": "default"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showDebug": false,
+          "showMeasure": false,
+          "showScale": false,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "config": {
+              "showLegend": false,
+              "style": {
+                "color": {
+                  "field": "traffic_status",
+                  "fixed": "dark-green"
+                },
+                "opacity": 0.8,
+                "rotation": {
+                  "fixed": 0,
+                  "max": 360,
+                  "min": -360,
+                  "mode": "mod"
+                },
+                "size": {
+                  "fixed": 5,
+                  "max": 15,
+                  "min": 2
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                },
+                "symbolAlign": {
+                  "horizontal": "center",
+                  "vertical": "center"
+                },
+                "textConfig": {
+                  "fontSize": 12,
+                  "offsetX": 0,
+                  "offsetY": 0,
+                  "textAlign": "center",
+                  "textBaseline": "middle"
+                }
+              }
+            },
+            "filterData": {
+              "id": "byRefId",
+              "options": "merge-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A-A"
+            },
+            "layer-tooltip": true,
+            "name": "Layer 1",
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "allLayers": true,
+          "id": "coords",
+          "lat": 48.106219,
+          "lon": -1.69912,
+          "noRepeat": false,
+          "zoom": 10.9
+        }
+      },
+      "pluginVersion": "12.4.0",
+      "targets": [
+        {
+          "datasourceId": 1,
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "A",
+          "target": "select * from traffic_mapping where hierarchie = ${group:sqlstring} allow filtering;"
+        }
+      ],
+      "title": "New panel",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        }
+      ],
+      "type": "geomap"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "id": 4,
+      "panels": [],
+      "repeat": "street",
+      "title": "${street}",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "efg0ybz4lx8u8c"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [
+            {
+              "options": {
+                "congested": {
+                  "color": "red",
+                  "index": 3
+                },
+                "freeFlow": {
+                  "color": "green",
+                  "index": 1
+                },
+                "heavy": {
+                  "color": "orange",
+                  "index": 2
+                },
+                "impossible": {
+                  "color": "dark-red",
+                  "index": 4
+                },
+                "unknown": {
+                  "color": "text",
+                  "index": 0
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 20,
+        "w": 11,
+        "x": 0,
+        "y": 41
+      },
+      "id": 3,
+      "options": {
+        "basemap": {
+          "config": {},
+          "name": "Layer 0",
+          "noRepeat": false,
+          "type": "default"
+        },
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showDebug": false,
+          "showMeasure": false,
+          "showScale": false,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "field": "traffic_status",
+                  "fixed": "dark-green"
+                },
+                "opacity": 0.7,
+                "rotation": {
+                  "fixed": 0,
+                  "max": 360,
+                  "min": -360,
+                  "mode": "mod"
+                },
+                "size": {
+                  "fixed": 5,
+                  "max": 15,
+                  "min": 2
+                },
+                "symbol": {
+                  "fixed": "img/icons/marker/circle.svg",
+                  "mode": "fixed"
+                },
+                "symbolAlign": {
+                  "horizontal": "center",
+                  "vertical": "center"
+                },
+                "textConfig": {
+                  "fontSize": 12,
+                  "offsetX": 0,
+                  "offsetY": 0,
+                  "textAlign": "center",
+                  "textBaseline": "middle"
+                }
+              }
+            },
+            "filterData": {
+              "id": "byRefId",
+              "options": "A"
+            },
+            "location": {
+              "mode": "auto"
+            },
+            "name": "Points",
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "allLayers": true,
+          "id": "coords",
+          "lat": 48.148272,
+          "lon": -1.828868,
+          "noRepeat": false,
+          "zoom": 9.66
+        }
+      },
+      "pluginVersion": "12.4.0",
+      "targets": [
+        {
+          "datasourceId": 1,
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "A",
+          "target": "select * from traffic_mapping\nwhere denomination = ${street:sqlstring} and hierarchie = ${group:sqlstring} and date_time >= $__from and date_time <= $__to\nallow filtering;"
+        }
+      ],
+      "title": "Map",
+      "transparent": true,
+      "type": "geomap"
+    },
+    {
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "efg0ybz4lx8u8c"
+      },
+      "description": "The average speed on each segment",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Average Speed",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "scheme",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": true,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "dashed+area"
+            }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "velocitykmh"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "max_speed"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 13,
+        "x": 11,
+        "y": 41
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "hadesarchitect-cassandra-datasource",
+            "uid": "efg0ybz4lx8u8c"
+          },
+          "datasourceId": 1,
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "A",
+          "target": "select denomination, date_time, avg_speed as\"Average Speed\", max_speed from traffic_realtime where denomination = ${street:sqlstring};"
+        }
+      ],
+      "title": "Average speed ",
+      "transformations": [
+        {
+          "id": "configFromData",
+          "options": {
+            "configRefId": "A",
+            "mappings": [
+              {
+                "fieldName": "max_speed",
+                "handlerKey": "threshold1",
+                "reducerId": "max"
+              }
+            ]
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "hadesarchitect-cassandra-datasource",
+        "uid": "efg0ybz4lx8u8c"
+      },
+      "description": "The average time it takes to travel through the segment",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Time Travel",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": true,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 13,
+        "x": 11,
+        "y": 52
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.4.0",
+      "targets": [
+        {
+          "datasourceId": 1,
+          "queryType": "query",
+          "rawQuery": true,
+          "refId": "A",
+          "target": "select denomination, date_time, travel_time as \"Travel Time\" from traffic_realtime where denomination = ${street:sqlstring};"
+        }
+      ],
+      "title": "Time Travel",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "Réseau d'armature",
+          "value": "Réseau d'armature"
+        },
+        "datasource": {
+          "type": "hadesarchitect-cassandra-datasource",
+          "uid": "efg0ybz4lx8u8c"
+        },
+        "definition": "select hierarchie from traffic_realtime;",
+        "label": "Group",
+        "name": "group",
+        "options": [],
+        "query": {
+          "query": "select hierarchie from traffic_realtime;"
+        },
+        "refresh": 1,
+        "regex": "",
+        "regexApplyTo": "value",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "Route nationale 136",
+          "value": "Route nationale 136"
+        },
+        "datasource": {
+          "type": "hadesarchitect-cassandra-datasource",
+          "uid": "efg0ybz4lx8u8c"
+        },
+        "definition": "select denomination from traffic_realtime where hierarchie = ${group:sqlstring} allow filtering;",
+        "label": "Street Name",
+        "name": "street",
+        "options": [],
+        "query": {
+          "query": "select denomination from traffic_realtime where hierarchie = ${group:sqlstring} allow filtering;"
+        },
+        "refresh": 1,
+        "regex": "",
+        "regexApplyTo": "value",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "2026-03-14T22:45:00.000Z",
+    "to": "2026-03-16T14:55:00.000Z"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "3m",
+      "6m",
+      "9m",
+      "12m",
+      "1h",
+      "2h",
+      "1d"
+    ]
+  },
+  "timezone": "browser",
+  "title": "New dashboard",
+  "uid": "adcmbdp",
+  "version": 16,
+  "weekStart": ""
+}

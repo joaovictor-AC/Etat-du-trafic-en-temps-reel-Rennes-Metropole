@@ -130,7 +130,7 @@ services:
   spark-submit:
     container_name: spark-submit
     image: apache/spark:3.5.0
-    restart: "no"
+    restart: "unless-stopped"
     user: root
     command: ["/opt/spark/bin/spark-submit", "--master", "spark://spark-master:7077", "--conf", "spark.jars.ivy=/tmp/.ivy2", "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,com.datastax.spark:spark-cassandra-connector_2.12:3.4.0", "/opt/spark/app/streaming_layer.py"]
     depends_on:
@@ -151,7 +151,7 @@ services:
   spark-batch:
     container_name: spark-batch
     image: apache/spark:3.5.0
-    restart: "no"
+    restart: "unless-stopped"
     user: root
     command: ["/opt/spark/bin/spark-submit", "--master", "spark://spark-master:7077", "--conf", "spark.jars.ivy=/tmp/.ivy2", "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,com.datastax.spark:spark-cassandra-connector_2.12:3.4.0", "/opt/spark/app/batch_layer.py"]
     depends_on:
