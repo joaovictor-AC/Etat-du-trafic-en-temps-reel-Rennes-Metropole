@@ -13,7 +13,7 @@ def _get_week_dates():
     start_week = today - timedelta(days=today.weekday())
     return [(start_week + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(today.weekday() + 1)]
 
-CORES = 2
+CORES = 1
 TODAY = date.today().strftime("%Y-%m-%d")
 WEEK_DAYS = _get_week_dates()
 BASE_PATH = f"/opt/spark/datalake/rennes_traffic_data"
@@ -34,8 +34,8 @@ class RennesTrafficBatch:
         self.spark = SparkSession.builder \
             .appName("RennesTrafficBatch") \
             .master("spark://spark-master:7077") \
-            .config("spark.driver.memory", "1g") \
-            .config("spark.executor.memory", "1g") \
+            .config("spark.driver.memory", "500m") \
+            .config("spark.executor.memory", "500m") \
             .config("spark.cores.max", str(CORES))\
             .config("spark.jars.packages", "com.datastax.spark:spark-cassandra-connector_2.12:3.4.0") \
             .config("spark.cassandra.connection.host", "cassandra") \

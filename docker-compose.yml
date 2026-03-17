@@ -37,7 +37,7 @@ services:
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_NUMBER_OF_PARTITIONS: 3
+      KAFKA_NUMBER_OF_PARTITIONS: 1
     ports:
       - "9092:9092"
       - "29092:29092"
@@ -107,7 +107,7 @@ services:
       spark-master:
         condition: service_healthy
     environment:
-      - SPARK_WORKER_CORES=4
+      - SPARK_WORKER_CORES=2
       - SPARK_WORKER_MEMORY=2g
       - SPARK_WORKER_PORT=8881
       - SPARK_WORKER_WEBUI_PORT=8081
