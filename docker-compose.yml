@@ -214,14 +214,13 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - grafana-storage:/var/lib/grafana
+      - ./grafana:/var/lib/grafana
     networks:
       - traffic_rennes_net
 
 volumes:
   kafka-data:
   cassandra-data:
-  grafana-storage:
 
 networks:
   traffic_rennes_net:
