@@ -33,3 +33,13 @@ create table if not exists traffic_mapping (
     hierarchie text,
     primary key ((denomination, hierarchie), date_time, point_order)
 ) with clustering order by (date_time desc, point_order asc);
+
+-- Table for day analysis (Batch Layer)
+create table if not exists traffic_daily_analysis (
+    denomination text,
+    hierarchie text,
+    avg_speed_today double,
+    max_speed_today double,
+    speed_ratio_today double,
+    primary key ((denomination, hierarchie))
+);

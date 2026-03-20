@@ -7,15 +7,8 @@ from pyspark.sql import functions as F
 from pyspark.sql.types import StructType, StructField, StringType, ArrayType, DoubleType
 
 
-def _get_week_dates():
-    """Retorna as datas da semana atual (segunda a domingo)"""
-    today = date.today()
-    start_week = today - timedelta(days=today.weekday())
-    return [(start_week + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(today.weekday() + 1)]
-
 CORES = 1
 TODAY = date.today().strftime("%Y-%m-%d")
-WEEK_DAYS = _get_week_dates()
 BASE_PATH = f"/opt/spark/datalake/rennes_traffic_data"
 INTERVAL_BATCH = 60 * 9
 KEYSPACE = "rennes_traffic"
@@ -34,8 +27,8 @@ class RennesTrafficBatch:
         self.spark = SparkSession.builder \
             .appName("RennesTrafficBatch") \
             .master("spark://spark-master:7077") \
-            .config("spark.driver.memory", "500m") \
-            .config("spark.executor.memory", "500m") \
+            .config("spark.driver.memory", "1g") \
+            .config("spark.executor.memory", "1g") \
             .config("spark.cores.max", str(CORES))\
             .config("spark.jars.packages", "com.datastax.spark:spark-cassandra-connector_2.12:3.4.0") \
             .config("spark.cassandra.connection.host", "cassandra") \
@@ -48,7 +41,6 @@ class RennesTrafficBatch:
         
         self.df_all = None
         self.df_today = None
-        self.df_week = None
         
     def read_data(self):
         """Read data for batch processing"""
@@ -57,7 +49,6 @@ class RennesTrafficBatch:
         try:
             self.df_all = self.spark.read.parquet(BASE_PATH)
             self.df_today = self.spark.read.parquet(f"{BASE_PATH}/date_partition={TODAY}")
-            # self.df_week = self.spark.read.parquet(*[f"{BASE_PATH}/date_partition={day}" for day in WEEK_DAYS])
             
         except Exception as e:
             if "PATH_NOT_FOUND" in str(e):
@@ -95,8 +86,25 @@ class RennesTrafficBatch:
                 F.col("hierarchie")
             )
             
+        df_avg_today = self.df_today \
+            .groupBy("denomination", "hierarchie") \
+            .agg(
+                F.avg("avg_speed").alias("avg_speed_today"),
+                F.max("max_speed").alias("max_speed_today")
+            ) \
+            .withColumn(
+                "speed_ratio_today", F.col("avg_speed_today") / F.col("max_speed_today")
+            ).select(
+                F.col("denomination"),
+                F.col("hierarchie"),
+                F.col("avg_speed_today"),
+                F.col("max_speed_today"),
+                F.col("speed_ratio_today")
+            )
+            
         targets = {
-            "traffic_mapping": df_geomap
+            "traffic_mapping": df_geomap,
+            "traffic_daily_analysis": df_avg_today
         }
         
         logger.info("Batch data processing completed.")

@@ -10,7 +10,7 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 from pyspark.sql.streaming import StreamingQuery
 
 # Configuration constants
-KAFKA_CORES = 2
+KAFKA_CORES = 1
 KAFKA_BROKER = "kafka:9092"
 KAFKA_TOPIC = "rennes_traffic"
 KEYSPACE = "rennes_traffic"
@@ -38,8 +38,8 @@ class RennesTrafficStreaming:
         self.spark = SparkSession.builder\
             .appName("RennesTrafficStreaming") \
             .master("spark://spark-master:7077") \
-            .config("spark.driver.memory", "500m")\
-            .config("spark.executor.memory", "500m")\
+            .config("spark.driver.memory", "1g")\
+            .config("spark.executor.memory", "1g")\
             .config("spark.cores.max", str(KAFKA_CORES))\
             .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0," "com.datastax.spark:spark-cassandra-connector_2.12:3.4.0") \
             .config("spark.cassandra.connection.host", "cassandra") \

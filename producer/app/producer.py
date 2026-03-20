@@ -15,7 +15,7 @@ FETCH_INTERVAL = 180
 API_LIMIT = 100
 KAFKA_TOPIC = 'rennes_traffic'
 KAFKA_BROKER = 'kafka:9092'
-NUM_PARTITIONS = 3
+NUM_PARTITIONS = 1
 REPLICATION_FACTOR = 1
 API_CLE = 'Apikey 227b312ce19e501c260e8bb53f681b9a5fd34b57bbeaf3ba6da53e4d'
 
@@ -110,7 +110,7 @@ class RennesTrafficProducer:
                 offset += API_LIMIT
                 
                 # Sleep briefly to avoid overwhelming the API with requests
-                time.sleep(.5)
+                time.sleep(1)
                 
             except requests.exceptions.RequestException as e:
                 logger.error(f"Failed to fetch data from API: {e}")
