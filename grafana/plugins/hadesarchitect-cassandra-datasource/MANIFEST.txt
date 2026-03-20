@@ -1,0 +1,43 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+{
+  "manifestVersion": "2.0.0",
+  "signatureType": "community",
+  "signedByOrg": "hadesarchitect",
+  "signedByOrgName": "hadesarchitect",
+  "plugin": "hadesarchitect-cassandra-datasource",
+  "version": "3.2.0",
+  "time": 1771780412269,
+  "keyId": "7e4d0c6a708866e7",
+  "files": {
+    "CHANGELOG.md": "2d5d5a9f343ad12161a36d0de8176c973e46ef51d3d8506878945e3d8b50daee",
+    "LICENSE": "65b6092f1f311c776118c0f039b6ec8928931af9f3bc15ea493ecce87d1fa5ab",
+    "module.js": "6bccf84601884db0bcb5dc7448121e5b2eeeb1edadb97a873fb30b1239e8c8e8",
+    "cassandra-plugin_linux_arm64": "bd44a78e0da8255455faf9ad2ab992c803eaaf27620eda0211dedbdf45597406",
+    "img/suggestions.png": "be30abcce0f41a6b8a1c3f0d845f8a51b95631dff91a83743b1cd19f45d3de07",
+    "img/cassandra.svg": "5949151e09765f7d8cbbfcdd1589d396ec35abaa5a2965b8a428f610a755f047",
+    "img/configurator.png": "c2365b4738d59a3883917af2bc17f0933ec888d1ac19f28cc216bdb67f05a01c",
+    "img/config.png": "d2a46c0dd65bdaf57d8b33cf8c103b46234518f2b87f140fa7b274dcbc74427f",
+    "img/editor.png": "c193ac6791a1fd73d64fdd3f33a9cbd4fcc1f19d19be8f2346ff953946d5da36",
+    "cassandra-plugin_windows_amd64.exe": "70538b3e19fbb8940b074eaa52a8f8ff73224f9505cf7d798ab2158fd29e3e41",
+    "go_plugin_build_manifest": "a156f8b72e979e4e4e342be7fef56394e0e5bb018946ac3eda83ba7021fe264b",
+    "cassandra-plugin_darwin_amd64": "0aa0eed714811afd7b1628a812a71fac0543ba96d30f0f2da7e66d33bfc32bd1",
+    "cassandra-plugin_linux_amd64": "a889bb7fa4865767bec9cfe6be6bb1d6e150224cf45d4833aae1ef7ac22dd6c1",
+    "README.md": "fec4e4af0c56330cad463561bc0761d8f48a322e202066daa327b5af4fc941b4",
+    "module.js.map": "d1d52adbe3038011ddcaac7b549ff7583a86f0248cf167bf15a965678abc0244",
+    "cassandra-plugin_linux_arm": "7d0e16bb7c3f34b7544cf4f6a8076454dfa8fc358cc33f103cbaa60b504a26ea",
+    "plugin.json": "92175dc179b9e75f6769a194384d125e177a14e6a1390d4ed275b90f4d17f4a1",
+    "cassandra-plugin_darwin_arm64": "0e1296b0b9390cb5b6a699161c97c57e6db2c4741d929e265bf5eb996eb7ecbb"
+  }
+}
+-----BEGIN PGP SIGNATURE-----
+
+wsA/BAETCgBtBYJpmzk8CRB+TQxqcIhm50UUAAAAAAAcACBzYWx0QG5vdGF0
+aW9ucy5vcGVucGdwanMub3Jnub5s/XEda9Vk5NFnWS+rOaWoxPYUR9O3w4gc
+bwUmHn0WIQTzOyW2kQdOhGNlcPN+TQxqcIhm5wAA6gECCQHUWnZmh5+bXRBX
+IqdQJ/Pl8I6o9busFjFzKy9egRtGucCVIOn4NZAyuQLjKX21wFtpySBzlIzu
+HMNivOZQcNYVLAIJAZf7JlA+zD0ideryh3q7gg0YiLVLOFPmRjHBpzhDiClM
+Y1nfvyFpKSiSe4e3nukAE25Ptz+Gz1JwEr2M5ns3tyOw
+=8e8o
+-----END PGP SIGNATURE-----

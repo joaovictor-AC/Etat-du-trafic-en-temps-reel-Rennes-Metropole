@@ -1,0 +1,169 @@
+import logging
+from datetime import date, timedelta
+import time
+
+from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
+from pyspark.sql.types import StructType, StructField, StringType, ArrayType, DoubleType
+
+
+CORES = 1
+TODAY = date.today().strftime("%Y-%m-%d")
+BASE_PATH = f"/opt/spark/datalake/rennes_traffic_data"
+INTERVAL_BATCH = 60 * 9
+KEYSPACE = "rennes_traffic"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+logger = logging.getLogger(__name__)
+
+
+class RennesTrafficBatch:
+    def __init__(self):
+        self.spark = SparkSession.builder \
+            .appName("RennesTrafficBatch") \
+            .master("spark://spark-master:7077") \
+            .config("spark.driver.memory", "1g") \
+            .config("spark.executor.memory", "1g") \
+            .config("spark.cores.max", str(CORES))\
+            .config("spark.jars.packages", "com.datastax.spark:spark-cassandra-connector_2.12:3.4.0") \
+            .config("spark.cassandra.connection.host", "cassandra") \
+            .config("spark.cassandra.connection.port", "9042") \
+            .config("spark.sql.adaptive.enabled", "true") \
+            .getOrCreate()
+            
+        self.spark.sparkContext.setLogLevel("WARN")
+        logger.info("SparkSession for batch processing started successfully.")
+        
+        self.df_all = None
+        self.df_today = None
+        
+    def read_data(self):
+        """Read data for batch processing"""
+        logger.info("Reading data for batch processing...")
+        
+        try:
+            self.df_all = self.spark.read.parquet(BASE_PATH)
+            self.df_today = self.spark.read.parquet(f"{BASE_PATH}/date_partition={TODAY}")
+            
+        except Exception as e:
+            if "PATH_NOT_FOUND" in str(e):
+                logger.warning(f"The directory {BASE_PATH} is not exists yet. Waiting 30 seconds for the data streaming ...")
+            else:
+                logger.error(f"Error reading data: {e}")
+            time.sleep(30)
+                
+            return False
+        
+        logger.info("Data read successfully for batch processing.")
+        return True
+        
+    def process_data(self):
+        """
+        Process data for batch layer
+        """
+        logger.info("Starting batch data processing...")
+            
+        df_geomap = self.df_all \
+            .select(
+                F.col("date_time"),
+                F.col("denomination"),
+                F.col("traffic_status"),
+                F.col("hierarchie"),
+                F.posexplode_outer(F.col("geo_shape.geometry.coordinates")).alias("point_order", "coords")
+            ) \
+            .select(
+                F.col("date_time"),
+                F.col("denomination"),
+                F.col("traffic_status"),
+                F.col("point_order"),
+                F.col("coords").getItem(1).alias("latitude"),
+                F.col("coords").getItem(0).alias("longitude"),
+                F.col("hierarchie")
+            )
+            
+        df_avg_today = self.df_today \
+            .groupBy("denomination", "hierarchie") \
+            .agg(
+                F.avg("avg_speed").alias("avg_speed_today"),
+                F.max("max_speed").alias("max_speed_today")
+            ) \
+            .withColumn(
+                "speed_ratio_today", F.col("avg_speed_today") / F.col("max_speed_today")
+            ).select(
+                F.col("denomination"),
+                F.col("hierarchie"),
+                F.col("avg_speed_today"),
+                F.col("max_speed_today"),
+                F.col("speed_ratio_today")
+            )
+            
+        targets = {
+            "traffic_mapping": df_geomap,
+            "traffic_daily_analysis": df_avg_today
+        }
+        
+        logger.info("Batch data processing completed.")
+        
+        return targets
+        
+    def write_to_cassandra(self, df, table: str):
+        """
+        Write DataFrame to Cassandra table
+        """
+        logger.info(f"Writing DataFrame to Cassandra table: {table}")
+        
+        try:
+            df.write \
+                .format("org.apache.spark.sql.cassandra") \
+                .options(keyspace=KEYSPACE, table=table) \
+                .mode("append") \
+                .save()
+                
+            logger.info("DataFrame written to Cassandra successfully.")
+            
+        except Exception as e:
+            logger.error(f"Error writing to Cassandra: {e}")
+            
+    def stop(self):
+        """Stop Spark session"""
+        
+        logger.info("Stopping SparkSession...")
+        
+        self.spark.stop()
+        
+        logger.info("SparkSession stopped.")
+            
+def main():
+    batch_layer = RennesTrafficBatch()
+    
+    try:
+        while True:
+            start_time = time.time()
+            
+            if not batch_layer.read_data():
+                continue
+            
+            targets = batch_layer.process_data()
+            
+            for table, df in targets.items():
+                batch_layer.write_to_cassandra(df, table)
+                
+            sleep_duration = max(0, INTERVAL_BATCH - (time.time() - start_time))
+            
+            logger.info(f"Batch processing cycle completed. Sleeping for {int(sleep_duration // 60)} minutes.")
+            time.sleep(sleep_duration)
+            
+    except KeyboardInterrupt:
+        logger.info("Batch processing interrupted by user.")
+        
+        batch_layer.stop()
+        
+        logger.info("Spark session stopped. Exiting application.")
+        
+if __name__ == "__main__":
+    main()
