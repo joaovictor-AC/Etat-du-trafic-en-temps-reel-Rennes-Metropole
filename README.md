@@ -52,13 +52,12 @@ We implemented three separate tables within the `rennes_traffic` to support visu
 ---
 
 ## Data Visualization using Grafana
-We connected Grafana to our Cassandra database
+We connected Grafana to our Cassandra database to create this beautiful dashboard that shows the current traffic of the streets in Rennes, as well as the average speed of the streets over the last 9 minutes (Let's imagine it's a full day)
 
-![Grafana Dashboard](IMG/dashboard1.png)
-![Grafana Dashboard](IMG/dashboard2.png)
-![Grafana Dashboard](IMG/dashboard3.png)
-![Grafana Dashboard](IMG/dashboard4.png)
+![Grafana Dashboard](IMG/dashboard1.jpeg)
+![Grafana Dashboard](IMG/dashboard2.jpeg)
+![Grafana Dashboard](IMG/dashboard3.jpeg)
 ---
 
 > **Advanced Big Data Project**
-> **Authors:** ARAÚJO Joao, CÁCERES Alejandro  
+> **Authors:** ARAÚJO Joao, CÁCERES Alejandro 
